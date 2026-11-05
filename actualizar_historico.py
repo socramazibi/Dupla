@@ -7,6 +7,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 
 
@@ -17,6 +19,7 @@ from bs4 import BeautifulSoup
 START_DATE = date(2026, 5, 11)
 
 DATA_FILE = Path("data/historico2026.json")
+MARKER_FILE = Path("data/.historico_inicial_completo")
 
 BASE_URL = "https://statyr.com/es-es/dupla/resultados/{}"
 
@@ -24,12 +27,32 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; DuplaHistorico/1.0)"
 }
 
+
+# ==================================================
+# SESIÓN CON REINTENTOS AUTOMÁTICOS
+# ==================================================
+
 session = requests.Session()
 session.headers.update(HEADERS)
 
+retry_strategy = Retry(
+    total=5,
+    connect=5,
+    read=5,
+    backoff_factor=2,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET"],
+    respect_retry_after_header=True
+)
+
+adapter = HTTPAdapter(max_retries=retry_strategy)
+
+session.mount("https://", adapter)
+session.mount("http://", adapter)
+
 
 # ==================================================
-# FECHA ACTUAL DE ESPAÑA
+# FECHA ESPAÑOLA
 # ==================================================
 
 def today_spain():
@@ -39,7 +62,7 @@ def today_spain():
 
 
 # ==================================================
-# CONSULTAR RESULTADOS DE UN DÍA
+# CONSULTAR UN DÍA
 # ==================================================
 
 def read_day(day):
@@ -47,16 +70,22 @@ def read_day(day):
     url = BASE_URL.format(day.isoformat())
 
     try:
-        response = session.get(url, timeout=25)
+        response = session.get(
+            url,
+            timeout=(15, 60)
+        )
 
         if response.status_code == 404:
             return {}
 
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(
+            response.text,
+            "html.parser"
+        )
 
-        page_text = soup.get_text(" ", strip=True)
+        text = soup.get_text(" ", strip=True)
 
         results = {}
 
@@ -67,7 +96,7 @@ def read_day(day):
 
         matches = re.findall(
             pattern,
-            page_text,
+            text,
             flags=re.IGNORECASE
         )
 
@@ -83,13 +112,13 @@ def read_day(day):
 
     except requests.RequestException as error:
 
-        print(f"Error consultando {day}: {error}")
+        print(f"ERROR en {day}: {error}")
 
         return None
 
 
 # ==================================================
-# CARGAR HISTÓRICO EXISTENTE
+# CARGAR HISTÓRICO
 # ==================================================
 
 def load_history():
@@ -97,25 +126,42 @@ def load_history():
     if not DATA_FILE.exists():
         return {}
 
-    try:
+    with DATA_FILE.open("r", encoding="utf-8") as file:
+        data = json.load(file)
 
-        with DATA_FILE.open("r", encoding="utf-8") as file:
-            data = json.load(file)
+    if not isinstance(data, dict):
+        raise RuntimeError("Formato de histórico incorrecto.")
 
-        if not isinstance(data, dict):
-            raise ValueError("El histórico no tiene formato válido.")
-
-        return data
-
-    except (json.JSONDecodeError, OSError, ValueError) as error:
-
-        raise RuntimeError(
-            f"No se pudo leer el histórico: {error}"
-        )
+    return data
 
 
 # ==================================================
-# ACTUALIZAR HISTÓRICO
+# GUARDAR HISTÓRICO
+# ==================================================
+
+def save_history(history):
+
+    DATA_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    ordered = dict(sorted(history.items()))
+
+    with DATA_FILE.open("w", encoding="utf-8") as file:
+
+        json.dump(
+            ordered,
+            file,
+            ensure_ascii=False,
+            indent=2
+        )
+
+        file.write("\n")
+
+
+# ==================================================
+# PROCESO PRINCIPAL
 # ==================================================
 
 def main():
@@ -124,66 +170,56 @@ def main():
 
     history = load_history()
 
-    # Si el histórico está vacío, se hace la carga inicial.
-    first_load = not history
+    # El marcador solo aparece cuando la primera
+    # importación se ha completado correctamente.
+    first_load = not MARKER_FILE.exists()
 
     if first_load:
 
         start = START_DATE
 
-        print("================================")
-        print("PRIMERA CARGA DEL HISTÓRICO")
-        print("Desde:", START_DATE)
-        print("Hasta:", today)
-        print("================================")
+        print("PRIMERA IMPORTACIÓN COMPLETA")
+        print(f"Desde: {start}")
+        print(f"Hasta: {today}")
 
     else:
 
-        # Revisar los últimos cuatro días.
         start = max(
             START_DATE,
             today - timedelta(days=3)
         )
 
-        print("================================")
         print("ACTUALIZACIÓN DIARIA")
-        print("Desde:", start)
-        print("Hasta:", today)
-        print("================================")
+        print(f"Desde: {start}")
+        print(f"Hasta: {today}")
 
     day = start
 
     added = 0
     updated = 0
-    missing_days = []
 
-    # ==================================================
-    # RECORRER LOS DÍAS
-    # ==================================================
+    failed_days = []
+    empty_days = []
 
     while day <= today:
 
         date_key = day.isoformat()
 
-        print(f"Consultando {date_key}...")
+        print(f"\nConsultando {date_key}...")
 
         day_results = read_day(day)
 
-        # Si falla la conexión, detener el proceso.
         if day_results is None:
 
-            raise RuntimeError(
-                f"No se pudo consultar {date_key}. "
-                "Se cancela la actualización."
-            )
+            failed_days.append(date_key)
 
-        if day_results:
+            print("Se volverá a intentar en la siguiente ejecución.")
+
+        elif day_results:
 
             previous = history.get(date_key, {})
 
             merged = dict(previous)
-
-            # Añadir o completar los sorteos encontrados.
             merged.update(day_results)
 
             if merged != previous:
@@ -196,94 +232,76 @@ def main():
                 history[date_key] = merged
 
             print(
-                f"{date_key}: "
-                f"{len(day_results)} sorteos encontrados."
+                f"Resultados encontrados: "
+                f"{len(day_results)}"
             )
 
         else:
 
+            # En la primera carga, los días pasados
+            # sin resultados deben revisarse.
             if first_load and day < today:
+                empty_days.append(date_key)
 
-                missing_days.append(date_key)
-
-                print(
-                    f"AVISO: no se encontraron resultados "
-                    f"para {date_key}."
-                )
-
-            else:
-
-                print(
-                    f"{date_key}: sin resultados disponibles."
-                )
+            print("Sin resultados encontrados.")
 
         day += timedelta(days=1)
 
-        # Pausa para no realizar demasiadas peticiones seguidas.
-        time.sleep(0.2)
+        time.sleep(0.5)
 
-    # ==================================================
-    # COMPROBAR PRIMERA IMPORTACIÓN
-    # ==================================================
+    # Guardar los resultados encontrados aunque
+    # haya fallado alguna consulta.
+    save_history(history)
 
-    if first_load and missing_days:
+    # No marcar como completa una primera carga
+    # que todavía tenga días pendientes.
+    if first_load and (failed_days or empty_days):
+
+        print("\nIMPORTACIÓN INCOMPLETA")
+        print("El histórico parcial se ha guardado.")
+
+        if failed_days:
+            print("Días con errores:", failed_days)
+
+        if empty_days:
+            print("Días sin resultados:", empty_days)
 
         raise RuntimeError(
-            "La primera importación no está completa. "
-            "No se guardará el histórico. "
-            "Días sin resultados: "
-            + ", ".join(missing_days)
+            "Hay días pendientes. Ejecuta de nuevo "
+            "para reintentar la importación completa."
         )
 
-    # ==================================================
-    # ORDENAR Y GUARDAR
-    # ==================================================
+    # Crear marcador solamente cuando se complete
+    # correctamente la primera importación.
+    if first_load:
 
-    history = dict(sorted(history.items()))
-
-    DATA_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    with DATA_FILE.open("w", encoding="utf-8") as file:
-
-        json.dump(
-            history,
-            file,
-            ensure_ascii=False,
-            indent=2
+        MARKER_FILE.parent.mkdir(
+            parents=True,
+            exist_ok=True
         )
 
-        file.write("\n")
+        MARKER_FILE.write_text(
+            f"Importación completa: {today}\n",
+            encoding="utf-8"
+        )
 
-    # ==================================================
-    # RESUMEN
-    # ==================================================
-
-    total_days = len(history)
+        print("\nPRIMER HISTÓRICO COMPLETADO.")
 
     total_draws = sum(
-        len(day_results)
-        for day_results in history.values()
+        len(results)
+        for results in history.values()
     )
 
-    print()
+    print("\n================================")
+    print("RESUMEN")
     print("================================")
-    print("ACTUALIZACIÓN FINALIZADA")
-    print("================================")
-    print(f"Días registrados: {total_days}")
-    print(f"Sorteos registrados: {total_draws}")
-    print(f"Días nuevos: {added}")
-    print(f"Días actualizados: {updated}")
-    print(f"Archivo: {DATA_FILE}")
+    print("Días registrados:", len(history))
+    print("Sorteos registrados:", total_draws)
+    print("Días nuevos:", added)
+    print("Días actualizados:", updated)
     print("================================")
 
-
-# ==================================================
-# INICIO
-# ==================================================
 
 if __name__ == "__main__":
-
     main()
+    
