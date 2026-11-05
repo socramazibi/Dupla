@@ -1,0 +1,210 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Estadísticas Dupla ONCE</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #101827;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      text-align: center;
+      padding: 25px 15px;
+      background: #172337;
+      border-bottom: 1px solid #29384e;
+    }
+
+    header h1 { margin: 0; font-size: 26px; }
+
+    header p {
+      color: #a8b5c8;
+      margin-bottom: 0;
+    }
+
+    main {
+      max-width: 700px;
+      margin: auto;
+      padding: 18px 14px 35px;
+    }
+
+    .filters, .summary, .stats-panel {
+      background: #1b293d;
+      border: 1px solid #304158;
+      border-radius: 13px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #35445b;
+      background: #fff;
+      color: #111827;
+      font-size: 15px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      background: #263750;
+      padding: 13px;
+      border-radius: 9px;
+    }
+
+    .metric span {
+      display: block;
+      color: #a8b5c8;
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .metric strong { font-size: 22px; }
+
+    .stats-panel h2 {
+      font-size: 18px;
+      margin: 0 0 15px;
+    }
+
+    .number-row {
+      display: grid;
+      grid-template-columns: 34px 1fr 42px;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .ball {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: #0d9488;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+
+    .bar-bg {
+      height: 12px;
+      background: #35445b;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      width: 0;
+      background: #2dd4bf;
+      border-radius: 10px;
+    }
+
+    .count {
+      text-align: right;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+
+    .highlight {
+      color: #5eead4;
+      font-weight: bold;
+    }
+
+    .note {
+      color: #94a3b8;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .back {
+      display: block;
+      text-align: center;
+      margin: 22px 0;
+      color: #5eead4;
+      text-decoration: none;
+    }
+
+    .error {
+      color: #fca5a5;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Estadísticas Dupla</h1>
+    <p>Frecuencias de los números del 01 al 15</p>
+  </header>
+
+  <main>
+    <section class="filters">
+      <label for="drawFilter">Seleccionar sorteo</label>
+      <select id="drawFilter">
+        <option value="all">Todos los sorteos</option>
+        <option value="1">Sorteo 1 · 10:00</option>
+        <option value="2">Sorteo 2 · 12:00</option>
+        <option value="3">Sorteo 3 · 14:00</option>
+        <option value="4">Sorteo 4 · 17:00</option>
+        <option value="5">Sorteo 5 · 21:15</option>
+      </select>
+    </section>
+
+    <section class="summary">
+      <div class="metric">
+        <span>Resultados analizados</span>
+        <strong id="total">0</strong>
+      </div>
+      <div class="metric">
+        <span>Número más frecuente</span>
+        <strong id="most">—</strong>
+      </div>
+      <div class="metric">
+        <span>Número menos frecuente</span>
+        <strong id="least">—</strong>
+      </div>
+      <div class="metric">
+        <span>Números posibles</span>
+        <strong>15</strong>
+      </div>
+    </section>
+
+    <section class="stats-panel">
+      <h2>Frecuencia por número</h2>
+      <div id="frequency"></div>
+    </section>
+
+    <p class="note" id="period"></p>
+
+    <p class="note">
+      Las estadísticas describen resultados pasados.
+      Todos los números mantienen la misma probabilidad teórica
+      en cada sorteo; las frecuencias no predicen resultados futuros.
+    </p>
+
+    <a class="back" href="index.html">← Volver a resultados</a>
+  </main>
+
+  <script src="stats.js"></script>
+</body>
+</html>

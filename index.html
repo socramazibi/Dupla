@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Dupla ONCE - Resultados</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #101827;
+      color: #f1f5f9;
+    }
+
+    header {
+      text-align: center;
+      padding: 25px 15px 18px;
+      background: #172337;
+      border-bottom: 1px solid #29384e;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+      color: #fff;
+    }
+
+    header p {
+      margin: 8px 0 0;
+      color: #a8b5c8;
+    }
+
+    main {
+      width: min(680px, 100%);
+      margin: auto;
+      padding: 18px 14px 35px;
+    }
+
+    .navigation {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    button, input {
+      font-size: 15px;
+      border: 1px solid #35445b;
+      border-radius: 9px;
+      padding: 11px;
+    }
+
+    button {
+      background: #263750;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:active { transform: scale(.97); }
+
+    input {
+      min-width: 0;
+      flex: 1;
+      background: #fff;
+      color: #111827;
+    }
+
+    .today {
+      background: #0d9488;
+      border-color: #0d9488;
+    }
+
+    .draw-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #1b293d;
+      border: 1px solid #304158;
+      border-radius: 13px;
+      padding: 16px;
+      margin-bottom: 11px;
+    }
+
+    .draw-info strong {
+      display: block;
+      font-size: 17px;
+    }
+
+    .draw-info span {
+      display: block;
+      color: #a8b5c8;
+      font-size: 13px;
+      margin-top: 5px;
+    }
+
+    .number {
+      display: grid;
+      place-items: center;
+      min-width: 57px;
+      height: 57px;
+      border-radius: 12px;
+      background: #0d9488;
+      color: white;
+      font-size: 27px;
+      font-weight: bold;
+    }
+
+    .pending {
+      background: #35445b;
+      color: #cbd5e1;
+      font-size: 12px;
+      padding: 9px 11px;
+      border-radius: 8px;
+    }
+
+    .status {
+      color: #a8b5c8;
+      font-size: 13px;
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    .links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 25px;
+    }
+
+    a {
+      color: #5eead4;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    footer {
+      text-align: center;
+      color: #78879c;
+      font-size: 12px;
+      padding: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Dupla ONCE</h1>
+    <p>Resultados diarios · Del 01 al 15</p>
+  </header>
+
+  <main>
+    <div class="navigation">
+      <button id="prevBtn" aria-label="Día anterior">‹</button>
+      <input type="date" id="dateInput">
+      <button id="nextBtn" aria-label="Día siguiente">›</button>
+      <button id="todayBtn" class="today">Hoy</button>
+    </div>
+
+    <div id="results"></div>
+
+    <p id="status" class="status">Cargando resultados...</p>
+
+    <div class="links">
+      <a href="stats.html">Ver estadísticas</a>
+      <a href="https://www.juegosonce.es/resultados-dupla"
+         target="_blank" rel="noopener">
+        Web oficial ONCE
+      </a>
+    </div>
+  </main>
+
+  <footer>
+    Resultados informativos · Dupla de la ONCE
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
