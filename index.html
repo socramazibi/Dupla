@@ -1,185 +1,277 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101827">
-  <title>Dupla ONCE - Resultados</title>
-  <style>
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #101827;
-      color: #f1f5f9;
-    }
-
-    header {
-      text-align: center;
-      padding: 25px 15px 18px;
-      background: #172337;
-      border-bottom: 1px solid #29384e;
-    }
-
-    header h1 {
-      margin: 0;
-      font-size: 28px;
-      color: #fff;
-    }
-
-    header p {
-      margin: 8px 0 0;
-      color: #a8b5c8;
-    }
-
-    main {
-      width: min(680px, 100%);
-      margin: auto;
-      padding: 18px 14px 35px;
-    }
-
-    .navigation {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 18px;
-    }
-
-    button, input {
-      font-size: 15px;
-      border: 1px solid #35445b;
-      border-radius: 9px;
-      padding: 11px;
-    }
-
-    button {
-      background: #263750;
-      color: white;
-      cursor: pointer;
-    }
-
-    button:active { transform: scale(.97); }
-
-    input {
-      min-width: 0;
-      flex: 1;
-      background: #fff;
-      color: #111827;
-    }
-
-    .today {
-      background: #0d9488;
-      border-color: #0d9488;
-    }
-
-    .draw-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      background: #1b293d;
-      border: 1px solid #304158;
-      border-radius: 13px;
-      padding: 16px;
-      margin-bottom: 11px;
-    }
-
-    .draw-info strong {
-      display: block;
-      font-size: 17px;
-    }
-
-    .draw-info span {
-      display: block;
-      color: #a8b5c8;
-      font-size: 13px;
-      margin-top: 5px;
-    }
-
-    .number {
-      display: grid;
-      place-items: center;
-      min-width: 57px;
-      height: 57px;
-      border-radius: 12px;
-      background: #0d9488;
-      color: white;
-      font-size: 27px;
-      font-weight: bold;
-    }
-
-    .pending {
-      background: #35445b;
-      color: #cbd5e1;
-      font-size: 12px;
-      padding: 9px 11px;
-      border-radius: 8px;
-    }
-
-    .status {
-      color: #a8b5c8;
-      font-size: 13px;
-      text-align: center;
-      margin: 15px 0;
-    }
-
-    .links {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-top: 25px;
-    }
-
-    a {
-      color: #5eead4;
-      text-decoration: none;
-    }
-
-    a:hover { text-decoration: underline; }
-
-    footer {
-      text-align: center;
-      color: #78879c;
-      font-size: 12px;
-      padding: 15px;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172b68">
+  <meta name="description" content="Estadísticas e histórico del sorteo ONCE Dupla.">
+  <title>Dupla | Estadísticas</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="stats.js" defer></script>
 </head>
-
 <body>
-  <header>
-    <h1>Dupla ONCE</h1>
-    <p>Resultados diarios · Del 01 al 15</p>
-  </header>
 
-  <main>
-    <div class="navigation">
-      <button id="prevBtn" aria-label="Día anterior">‹</button>
-      <input type="date" id="dateInput">
-      <button id="nextBtn" aria-label="Día siguiente">›</button>
-      <button id="todayBtn" class="today">Hoy</button>
+<header>
+  <div class="container">
+    <div class="header-top">
+      <div class="logo">ESTADÍSTICAS ONCE</div>
+      <div class="header-tag">EXCLUSIVO DUPLA · 01–15</div>
+    </div>
+    <h1>Dupla</h1>
+    <p>Histórico y análisis estadístico de los cinco sorteos</p>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="panel">
+    <h2 class="section-title">Histórico</h2>
+    <p class="section-subtitle">
+      Periodo completo disponible en el archivo de resultados.
+    </p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Primera fecha</div>
+        <div class="stat-value" id="primeraFecha">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Última fecha</div>
+        <div class="stat-value" id="ultimaFecha">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resultados históricos</div>
+        <div class="stat-value" id="totalHistorico">—</div>
+        <div class="stat-note">Resultados individuales de los sorteos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Días con resultados</div>
+        <div class="stat-value" id="diasHistorico">—</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 class="section-title">Seleccionar periodo</h2>
+    <p class="section-subtitle">
+      Elige las fechas y el sorteo que quieres analizar.
+    </p>
+
+    <div class="filter-grid">
+      <div class="field">
+        <label for="desde">Desde</label>
+        <input type="date" id="desde">
+      </div>
+
+      <div class="field">
+        <label for="hasta">Hasta</label>
+        <input type="date" id="hasta">
+      </div>
+
+      <div class="field">
+        <label for="sorteo">Sorteo</label>
+        <select id="sorteo">
+          <option value="todos">Todos los sorteos</option>
+          <option value="1">Sorteo 1</option>
+          <option value="2">Sorteo 2</option>
+          <option value="3">Sorteo 3</option>
+          <option value="4">Sorteo 4</option>
+          <option value="5">Sorteo 5</option>
+        </select>
+      </div>
     </div>
 
-    <div id="results"></div>
-
-    <p id="status" class="status">Cargando resultados...</p>
-
-    <div class="links">
-      <a href="stats.html">Ver estadísticas</a>
-      <a href="https://www.juegosonce.es/resultados-dupla"
-         target="_blank" rel="noopener">
-        Web oficial ONCE
-      </a>
+    <div class="filter-actions">
+      <button class="btn btn-primary" id="aplicar">Aplicar filtros</button>
+      <button class="btn btn-secondary" id="reiniciar">Restablecer</button>
     </div>
-  </main>
 
-  <footer>
-    Resultados informativos · Dupla de la ONCE
-  </footer>
+    <div class="status" id="estado">Cargando histórico…</div>
+  </section>
 
-  <script src="script.js"></script>
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Resultados del periodo</div>
+      <div class="stat-value" id="totalFiltrado">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Días analizados</div>
+      <div class="stat-value" id="diasFiltrados">—</div>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Frecuencia de los números</h2>
+    <p class="section-subtitle" id="frecuenciaTotal">
+      Apariciones de cada número del 01 al 15.
+    </p>
+    <div class="number-bars" id="frecuencias"></div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Ranking de números</h2>
+    <p class="section-subtitle">
+      Ordenados según el número de apariciones en el periodo seleccionado.
+    </p>
+
+    <div class="two-columns">
+      <div>
+        <h3>Más frecuentes</h3>
+        <div id="masFrecuentes"></div>
+      </div>
+      <div>
+        <h3>Menos frecuentes</h3>
+        <div id="menosFrecuentes"></div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:18px">
+      <table>
+        <thead>
+          <tr>
+            <th>Posición</th>
+            <th>Número</th>
+            <th>Apariciones</th>
+            <th>Porcentaje</th>
+          </tr>
+        </thead>
+        <tbody id="tablaRanking"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Números más atrasados</h2>
+    <p class="section-subtitle">
+      El atraso cuenta cuántos resultados del mismo sorteo han pasado
+      desde la última aparición. Los cinco sorteos se calculan por separado.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sorteo</th>
+            <th>Número</th>
+            <th>Atraso</th>
+          </tr>
+        </thead>
+        <tbody id="tablaAtrasos"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Rachas y repeticiones</h2>
+    <p class="section-subtitle">
+      Repeticiones del mismo número en resultados consecutivos
+      del mismo sorteo, dentro del periodo seleccionado.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sorteo</th>
+            <th>Número</th>
+            <th>Racha</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+          </tr>
+        </thead>
+        <tbody id="tablaRachas"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Números consecutivos</h2>
+    <p class="section-subtitle">
+      Cuenta las transiciones entre dos resultados consecutivos del mismo
+      sorteo cuando sus números difieren exactamente en una unidad.
+      Por ejemplo: 07 → 08 o 12 → 11.
+    </p>
+
+    <div class="stat-card" style="margin-bottom:15px">
+      <div class="stat-label">Total de transiciones consecutivas</div>
+      <div class="stat-value" id="totalConsecutivos">0</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sorteo</th>
+            <th>Transiciones consecutivas</th>
+          </tr>
+        </thead>
+        <tbody id="tablaConsecutivos"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Evolución mensual</h2>
+    <p class="section-subtitle">
+      Resultados por mes y números más frecuentes de cada mes.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th>Resultados</th>
+            <th>Número más frecuente</th>
+            <th>Volumen</th>
+          </tr>
+        </thead>
+        <tbody id="graficoMensual"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Comparativa de los cinco sorteos</h2>
+    <p class="section-subtitle">
+      Esta comparativa muestra siempre los cinco sorteos,
+      independientemente del selector de sorteo. Respeta las fechas
+      Desde y Hasta.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Sorteo</th>
+            <th>Resultados</th>
+            <th>Más frecuente</th>
+            <th>Apariciones</th>
+            <th>Menos frecuente</th>
+            <th>Apariciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaComparativa"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section-card">
+    <h2 class="section-title">Últimos resultados</h2>
+    <p class="section-subtitle">
+      Los diez últimos días disponibles, con sus cinco sorteos.
+    </p>
+
+    <div class="results-grid" id="ultimosResultados"></div>
+  </section>
+
+</main>
+
+<footer>
+  Estadísticas descriptivas de Dupla · Números del 01 al 15
+  <br>
+  Los datos estadísticos no predicen resultados futuros.
+</footer>
+
 </body>
 </html>
