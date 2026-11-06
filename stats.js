@@ -1,715 +1,574 @@
-
 "use strict";
 
-// =====================================================
-// CONFIGURACIÓN
-// =====================================================
+const TOTAL_NUMEROS = 15;
+const TOTAL_SORTEOS = 5;
+const NOMBRES_SORTEOS = [
+  "Sorteo 1",
+  "Sorteo 2",
+  "Sorteo 3",
+  "Sorteo 4",
+  "Sorteo 5"
+];
 
-const URL_HISTORICO = "data/historico2026.json";
+let historico = [];
+let historicoCompleto = [];
 
-let historico = {};
-let todosLosResultados = [];
-let resultadosFiltrados = [];
+const $ = (id) => document.getElementById(id);
 
-const NUMEROS = Array.from({ length: 15 }, (_, i) => i + 1);
+function fechaLocal(fecha) {
+  const [y, m, d] = fecha.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
-// =====================================================
-// ELEMENTOS HTML
-// =====================================================
+function fechaTexto(fecha) {
+  if (!fecha) return "—";
+  const [y, m, d] = fecha.split("-");
+  return `${d}/${m}/${y}`;
+}
 
-const elementoDesde = document.getElementById("desde");
-const elementoHasta = document.getElementById("hasta");
-const elementoSorteo = document.getElementById("sorteo");
-const elementoPeriodo = document.getElementById("periodo");
-const elementoAviso = document.getElementById("aviso");
-const botonAplicar = document.getElementById("aplicar");
+function escapar(texto) {
+  return String(texto).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[c]);
+}
 
-// =====================================================
-// UTILIDADES
-// =====================================================
+function numeroTexto(numero) {
+  return String(numero).padStart(2, "0");
+}
 
-function numeroValido(valor) {
-    if (valor === null || valor === undefined || valor === "") {
-        return null;
+function mostrarVacio(mensaje) {
+  return `<div class="empty">${escapar(mensaje)}</div>`;
+}
+
+function leerHistorico(datos) {
+  const fechas = Object.keys(datos)
+    .filter(fecha => /^\d{4}-\d{2}-\d{2}$/.test(fecha))
+    .sort();
+
+  const registros = [];
+
+  for (const fecha of fechas) {
+    const dia = datos[fecha];
+
+    if (!dia || typeof dia !== "object" || Array.isArray(dia)) {
+      continue;
     }
 
-    const numero = Number(valor);
+    const sorteos = [];
 
-    if (!Number.isInteger(numero) || numero < 1 || numero > 15) {
-        return null;
-    }
+    for (let s = 1; s <= TOTAL_SORTEOS; s++) {
+      const valor = dia[String(s)];
 
-    return numero;
-}
-
-function formatoNumero(numero) {
-    return String(numero).padStart(2, "0");
-}
-
-function escaparHTML(valor) {
-    return String(valor).replace(/[&<>"']/g, caracter => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-    })[caracter]);
-}
-
-function obtenerElemento(id) {
-    return document.getElementById(id);
-}
-
-function ponerTexto(id, texto) {
-    const elemento = obtenerElemento(id);
-    if (elemento) elemento.textContent = texto;
-}
-
-function ponerHTML(id, html) {
-    const elemento = obtenerElemento(id);
-    if (elemento) elemento.innerHTML = html;
-}
-
-function fechaValida(fecha) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(fecha);
-}
-
-function ordenarPorFecha(a, b) {
-    return a.fecha.localeCompare(b.fecha) || a.sorteo - b.sorteo;
-}
-
-// =====================================================
-// LEER HISTÓRICO
-// =====================================================
-
-function obtenerResultados() {
-    const filas = [];
-
-    Object.keys(historico)
-        .sort()
-        .forEach(fecha => {
-            if (!fechaValida(fecha)) return;
-
-            const registro = historico[fecha];
-
-            let valores = [];
-
-            // Formato 1: [9, 7, 3, 8, 13]
-            if (Array.isArray(registro)) {
-                valores = registro;
-
-            // Formato 2: { values: [9, 7, 3, 8, 13] }
-            } else if (Array.isArray(registro?.values)) {
-                valores = registro.values;
-
-            // Formato 3: { "1": 9, "2": 7, ... }
-            } else if (registro && typeof registro === "object") {
-                valores = [1, 2, 3, 4, 5].map(
-                    numero => registro[String(numero)] ?? null
-                );
-            }
-
-            valores.forEach((valor, indice) => {
-                if (indice > 4) return;
-
-                const numero = numeroValido(valor);
-
-                if (numero === null) return;
-
-                filas.push({
-                    fecha,
-                    sorteo: indice,
-                    numero
-                });
-            });
+      if (
+        Number.isInteger(valor) &&
+        valor >= 1 &&
+        valor <= TOTAL_NUMEROS
+      ) {
+        sorteos.push({
+          sorteo: s,
+          numero: valor
         });
+      }
+    }
 
-    return filas.sort(ordenarPorFecha);
+    if (sorteos.length) {
+      registros.push({ fecha, sorteos });
+    }
+  }
+
+  return registros;
 }
 
-// =====================================================
-// FILTRAR RESULTADOS
-// =====================================================
+function obtenerTodosLosResultados(registros) {
+  const lista = [];
+
+  for (const dia of registros) {
+    for (const resultado of dia.sorteos) {
+      lista.push({
+        fecha: dia.fecha,
+        sorteo: resultado.sorteo,
+        numero: resultado.numero
+      });
+    }
+  }
+
+  return lista;
+}
 
 function aplicarFiltros() {
-    const desde = elementoDesde?.value || "";
-    const hasta = elementoHasta?.value || "";
-    const sorteoSeleccionado = elementoSorteo?.value || "todos";
+  const desde = $("desde").value;
+  const hasta = $("hasta").value;
+  const sorteo = $("sorteo").value;
 
-    resultadosFiltrados = todosLosResultados.filter(resultado => {
-        if (desde && resultado.fecha < desde) return false;
-        if (hasta && resultado.fecha > hasta) return false;
+  if (desde && hasta && desde > hasta) {
+    $("estado").textContent =
+      "La fecha inicial no puede ser posterior a la fecha final.";
+    $("estado").className = "status error";
+    return;
+  }
 
-        if (
-            sorteoSeleccionado !== "todos" &&
-            resultado.sorteo !== Number(sorteoSeleccionado) - 1
-        ) {
-            return false;
-        }
+  historico = historicoCompleto.filter(dia => {
+    if (desde && dia.fecha < desde) return false;
+    if (hasta && dia.fecha > hasta) return false;
+    return true;
+  });
 
-        return true;
-    });
+  const numeroSorteo = sorteo === "todos" ? null : Number(sorteo);
 
-    actualizarEstadisticas();
+  if (numeroSorteo) {
+    historico = historico.map(dia => ({
+      ...dia,
+      sorteos: dia.sorteos.filter(r => r.sorteo === numeroSorteo)
+    })).filter(dia => dia.sorteos.length);
+  }
+
+  $("estado").textContent =
+    `Periodo: ${fechaTexto(desde)} – ${fechaTexto(hasta)}. ` +
+    `Sorteo: ${numeroSorteo ? NOMBRES_SORTEOS[numeroSorteo - 1] : "Todos"}.`;
+
+  $("estado").className = "status";
+
+  dibujarTodo();
 }
 
-// =====================================================
-// ACTUALIZAR PÁGINA
-// =====================================================
+function reiniciarFiltros() {
+  if (!historicoCompleto.length) return;
 
-function actualizarEstadisticas() {
-    const total = resultadosFiltrados.length;
+  $("desde").value = historicoCompleto[0].fecha;
+  $("hasta").value = historicoCompleto[historicoCompleto.length - 1].fecha;
+  $("sorteo").value = "todos";
 
-    if (total === 0) {
-        ponerTexto("periodo", "No hay resultados disponibles con estos filtros.");
-        ponerTexto("aviso", "Prueba con otro periodo o sorteo.");
-
-        limpiarEstadisticas();
-        return;
-    }
-
-    const fechas = [...new Set(resultadosFiltrados.map(r => r.fecha))];
-
-    ponerTexto(
-        "periodo",
-        `Periodo: ${fechas[0]} a ${fechas[fechas.length - 1]} · ${total} resultados`
-    );
-
-    ponerTexto("aviso", "");
-
-    dibujarResumen();
-    dibujarFrecuencias();
-    dibujarTablaFrecuencias();
-    dibujarSorteos();
-    dibujarRanking();
-    dibujarAtrasos();
-    dibujarRachas();
-    dibujarVecinos();
-    dibujarComparativa();
-    dibujarMeses();
-    dibujarUltimosResultados();
+  aplicarFiltros();
 }
 
-// =====================================================
-// LIMPIAR ESTADÍSTICAS
-// =====================================================
+function dibujarTodo() {
+  const resultados = obtenerTodosLosResultados(historico);
 
-function limpiarEstadisticas() {
-    const ids = [
-        "totalResultados",
-        "numeroMasFrecuente",
-        "numeroMenosFrecuente",
-        "media",
-        "graficoFrecuencia",
-        "tablaFrecuencias",
-        "estadisticasSorteos",
-        "ranking",
-        "atrasos",
-        "rachas",
-        "vecinos",
-        "comparativa",
-        "resultadosMes",
-        "ultimosResultados"
-    ];
-
-    ids.forEach(id => ponerHTML(id, ""));
+  dibujarResumen(resultados);
+  dibujarFrecuencias(resultados);
+  dibujarRanking(resultados);
+  dibujarAtrasos();
+  dibujarRachas();
+  dibujarConsecutivos();
+  dibujarMensual();
+  dibujarComparativa();
+  dibujarUltimos();
 }
 
-// =====================================================
-// RESUMEN GENERAL
-// =====================================================
+function dibujarResumen(resultados) {
+  const fechas = historicoCompleto.map(d => d.fecha);
+  const primera = fechas[0];
+  const ultima = fechas[fechas.length - 1];
 
-function dibujarResumen() {
-    const total = resultadosFiltrados.length;
-    const frecuencias = calcularFrecuencias();
+  $("primeraFecha").textContent = fechaTexto(primera);
+  $("ultimaFecha").textContent = fechaTexto(ultima);
 
-    const ordenados = [...NUMEROS].sort(
-        (a, b) => frecuencias[b] - frecuencias[a] || a - b
-    );
+  $("totalHistorico").textContent = resultadosHistoricos.length;
+  $("diasHistorico").textContent = fechas.length;
 
-    const maximo = ordenados[0];
-    const minimo = ordenados[ordenados.length - 1];
-
-    ponerTexto("totalResultados", total);
-    ponerTexto("numeroMasFrecuente", formatoNumero(maximo));
-    ponerTexto("numeroMenosFrecuente", formatoNumero(minimo));
-    ponerTexto("media", (total / 15).toFixed(2));
+  $("totalFiltrado").textContent = resultados.length;
+  $("diasFiltrados").textContent = historico.length;
 }
 
-// =====================================================
-// FRECUENCIAS
-// =====================================================
+const resultadosHistoricos = [];
 
-function calcularFrecuencias(datos = resultadosFiltrados) {
-    const frecuencias = {};
+function contarNumeros(resultados) {
+  const conteo = Array(TOTAL_NUMEROS + 1).fill(0);
 
-    NUMEROS.forEach(numero => {
-        frecuencias[numero] = 0;
-    });
+  for (const r of resultados) {
+    conteo[r.numero]++;
+  }
 
-    datos.forEach(resultado => {
-        frecuencias[resultado.numero]++;
-    });
-
-    return frecuencias;
+  return conteo;
 }
 
-function dibujarFrecuencias() {
-    const frecuencias = calcularFrecuencias();
-    const maximo = Math.max(1, ...Object.values(frecuencias));
+function dibujarFrecuencias(resultados) {
+  const conteo = contarNumeros(resultados);
+  const maximo = Math.max(1, ...conteo.slice(1));
 
-    const html = NUMEROS.map(numero => {
-        const cantidad = frecuencias[numero];
-        const ancho = cantidad / maximo * 100;
+  $("frecuencias").innerHTML = conteo.slice(1).map((cantidad, i) => {
+    const porcentaje = resultados.length
+      ? (cantidad / resultados.length * 100)
+      : 0;
 
-        return `
-            <div class="frecuencia-item">
-                <span>${formatoNumero(numero)}</span>
-                <div class="barra-fondo">
-                    <div class="barra" style="width:${ancho}%"></div>
-                </div>
-                <strong>${cantidad}</strong>
-            </div>
-        `;
-    }).join("");
+    const ancho = cantidad ? cantidad / maximo * 100 : 0;
 
-    ponerHTML("graficoFrecuencia", html);
-}
-
-function dibujarTablaFrecuencias() {
-    const frecuencias = calcularFrecuencias();
-    const total = resultadosFiltrados.length;
-
-    const html = `
-        <table>
-            <thead>
-                <tr>
-                    <th>Número</th>
-                    <th>Veces</th>
-                    <th>Porcentaje</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${NUMEROS.map(numero => {
-                    const cantidad = frecuencias[numero];
-                    const porcentaje = total
-                        ? (cantidad / total * 100).toFixed(2)
-                        : "0.00";
-
-                    return `
-                        <tr>
-                            <td>${formatoNumero(numero)}</td>
-                            <td>${cantidad}</td>
-                            <td>${porcentaje}%</td>
-                        </tr>
-                    `;
-                }).join("")}
-            </tbody>
-        </table>
+    return `
+      <div class="bar-row">
+        <span class="ball">${numeroTexto(i + 1)}</span>
+        <div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${ancho}%"></div>
+          </div>
+          <div class="stat-note">${porcentaje.toFixed(1)} %</div>
+        </div>
+        <span class="bar-value">${cantidad}</span>
+      </div>
     `;
+  }).join("");
 
-    ponerHTML("tablaFrecuencias", html);
+  $("frecuenciaTotal").textContent =
+    `${resultados.length} resultados analizados`;
 }
 
-// =====================================================
-// ESTADÍSTICAS POR SORTEO
-// =====================================================
+function dibujarRanking(resultados) {
+  const conteo = contarNumeros(resultados);
+  const numeros = Array.from({ length: TOTAL_NUMEROS }, (_, i) => i + 1);
 
-function dibujarSorteos() {
-    const html = [0, 1, 2, 3, 4].map(sorteo => {
-        const datos = todosLosResultados.filter(resultado => {
-            if (elementoDesde?.value && resultado.fecha < elementoDesde.value) return false;
-            if (elementoHasta?.value && resultado.fecha > elementoHasta.value) return false;
-            return resultado.sorteo === sorteo;
-        });
+  const ordenados = [...numeros].sort((a, b) =>
+    conteo[b] - conteo[a] || a - b
+  );
 
-        const frecuencias = calcularFrecuencias(datos);
+  const maximo = Math.max(0, ...conteo.slice(1));
+  const minimo = Math.min(...conteo.slice(1));
 
-        const ordenados = [...NUMEROS].sort(
-            (a, b) => frecuencias[b] - frecuencias[a] || a - b
-        );
+  const frecuentes = ordenados.filter(n => conteo[n] === maximo);
+  const menos = ordenados.filter(n => conteo[n] === minimo);
 
-        return `
-            <tr>
-                <td>Sorteo ${sorteo + 1}</td>
-                <td>${datos.length}</td>
-                <td>${formatoNumero(ordenados[0])}</td>
-                <td>${frecuencias[ordenados[0]]}</td>
-            </tr>
-        `;
-    }).join("");
+  $("masFrecuentes").innerHTML = frecuentes.length
+    ? `<strong>${frecuentes.map(numeroTexto).join(", ")}</strong>
+       <span class="pill good">${maximo} apariciones</span>`
+    : mostrarVacio("Sin resultados");
 
-    ponerHTML("estadisticasSorteos", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Sorteo</th>
-                    <th>Total</th>
-                    <th>Más frecuente</th>
-                    <th>Veces</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
-    `);
+  $("menosFrecuentes").innerHTML = menos.length
+    ? `<strong>${menos.map(numeroTexto).join(", ")}</strong>
+       <span class="pill warn">${minimo} apariciones</span>`
+    : mostrarVacio("Sin resultados");
+
+  $("tablaRanking").innerHTML = ordenados.map((n, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${numeroTexto(n)}</strong></td>
+      <td>${conteo[n]}</td>
+      <td>${resultados.length
+        ? (conteo[n] / resultados.length * 100).toFixed(2) + "%"
+        : "0%"}</td>
+    </tr>
+  `).join("");
 }
-
-// =====================================================
-// RANKING
-// =====================================================
-
-function dibujarRanking() {
-    const frecuencias = calcularFrecuencias();
-
-    const ordenados = [...NUMEROS].sort(
-        (a, b) => frecuencias[b] - frecuencias[a] || a - b
-    );
-
-    const html = ordenados.map((numero, indice) => `
-        <tr>
-            <td>${indice + 1}</td>
-            <td>${formatoNumero(numero)}</td>
-            <td>${frecuencias[numero]}</td>
-        </tr>
-    `).join("");
-
-    ponerHTML("ranking", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Posición</th>
-                    <th>Número</th>
-                    <th>Veces</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
-    `);
-}
-
-// =====================================================
-// ATRASOS
-// =====================================================
 
 function dibujarAtrasos() {
-    const datos = [...resultadosFiltrados].sort(ordenarPorFecha);
-    const ultimaAparicion = {};
+  const filas = [];
 
-    NUMEROS.forEach(numero => {
-        ultimaAparicion[numero] = -1;
-    });
+  for (let s = 1; s <= TOTAL_SORTEOS; s++) {
+    const registros = historico
+      .flatMap(d => d.sorteos
+        .filter(r => r.sorteo === s)
+        .map(r => ({ fecha: d.fecha, numero: r.numero })))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-    datos.forEach((resultado, indice) => {
-        ultimaAparicion[resultado.numero] = indice;
-    });
+    if (!registros.length) continue;
 
-    const html = NUMEROS.map(numero => {
-        const ultima = ultimaAparicion[numero];
-        const atraso = ultima === -1 ? datos.length : datos.length - 1 - ultima;
+    for (let n = 1; n <= TOTAL_NUMEROS; n++) {
+      let indice = -1;
 
-        return { numero, atraso };
-    }).sort((a, b) => b.atraso - a.atraso || a.numero - b.numero)
-      .map(item => `
+      for (let i = registros.length - 1; i >= 0; i--) {
+        if (registros[i].numero === n) {
+          indice = i;
+          break;
+        }
+      }
+
+      const atraso = indice === -1
+        ? null
+        : registros.length - 1 - indice;
+
+      filas.push(`
         <tr>
-            <td>${formatoNumero(item.numero)}</td>
-            <td>${item.atraso}</td>
+          <td>${NOMBRES_SORTEOS[s - 1]}</td>
+          <td><strong>${numeroTexto(n)}</strong></td>
+          <td>${atraso === null
+            ? '<span class="pill warn">Sin aparición</span>'
+            : atraso === 0
+              ? '<span class="pill good">Último resultado</span>'
+              : `${atraso} sorteos`}</td>
         </tr>
-      `).join("");
+      `);
+    }
+  }
 
-    ponerHTML("atrasos", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Número</th>
-                    <th>Sorteos desde última aparición</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
-    `);
+  $("tablaAtrasos").innerHTML = filas.length
+    ? filas.join("")
+    : `<tr><td colspan="3">No hay resultados en el periodo.</td></tr>`;
 }
-
-// =====================================================
-// RACHAS Y REPETICIONES
-// =====================================================
 
 function dibujarRachas() {
-    const datos = [...resultadosFiltrados].sort(ordenarPorFecha);
+  const rachas = [];
 
-    let rachaActual = 0;
-    let numeroAnterior = null;
-    let maximaRacha = 0;
-    let numeroRacha = null;
+  for (let s = 1; s <= TOTAL_SORTEOS; s++) {
+    const registros = historico
+      .flatMap(d => d.sorteos
+        .filter(r => r.sorteo === s)
+        .map(r => ({ fecha: d.fecha, numero: r.numero })))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-    datos.forEach(resultado => {
-        if (resultado.numero === numeroAnterior) {
-            rachaActual++;
-        } else {
-            rachaActual = 1;
-            numeroAnterior = resultado.numero;
+    if (!registros.length) continue;
+
+    let numero = registros[0].numero;
+    let inicio = registros[0].fecha;
+    let longitud = 1;
+
+    for (let i = 1; i <= registros.length; i++) {
+      if (i < registros.length && registros[i].numero === numero) {
+        longitud++;
+      } else {
+        if (longitud >= 2) {
+          rachas.push({
+            sorteo: s,
+            numero,
+            longitud,
+            inicio,
+            fin: registros[i - 1].fecha
+          });
         }
 
-        if (rachaActual > maximaRacha) {
-            maximaRacha = rachaActual;
-            numeroRacha = resultado.numero;
+        if (i < registros.length) {
+          numero = registros[i].numero;
+          inicio = registros[i].fecha;
+          longitud = 1;
         }
-    });
+      }
+    }
+  }
 
-    const repeticiones = datos.filter((resultado, indice) =>
-        indice > 0 &&
-        resultado.numero === datos[indice - 1].numero
-    ).length;
+  rachas.sort((a, b) =>
+    b.longitud - a.longitud ||
+    a.sorteo - b.sorteo
+  );
 
-    ponerHTML("rachas", `
-        <p><strong>Mayor racha consecutiva:</strong> ${maximaRacha}</p>
-        <p><strong>Número de la racha:</strong> ${
-            numeroRacha === null ? "-" : formatoNumero(numeroRacha)
-        }</p>
-        <p><strong>Repeticiones consecutivas:</strong> ${repeticiones}</p>
-    `);
+  $("tablaRachas").innerHTML = rachas.length
+    ? rachas.slice(0, 30).map(r => `
+      <tr>
+        <td>${NOMBRES_SORTEOS[r.sorteo - 1]}</td>
+        <td><strong>${numeroTexto(r.numero)}</strong></td>
+        <td>${r.longitud} sorteos seguidos</td>
+        <td>${fechaTexto(r.inicio)}</td>
+        <td>${fechaTexto(r.fin)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="5">No se han encontrado repeticiones consecutivas.</td></tr>`;
 }
 
-// =====================================================
-// NÚMEROS VECINOS
-// =====================================================
+function dibujarConsecutivos() {
+  let total = 0;
+  const filas = [];
 
-function dibujarVecinos() {
-    const frecuencias = {};
+  for (let s = 1; s <= TOTAL_SORTEOS; s++) {
+    const registros = historico
+      .flatMap(d => d.sorteos
+        .filter(r => r.sorteo === s)
+        .map(r => ({ fecha: d.fecha, numero: r.numero })))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
-    NUMEROS.forEach(numero => {
-        frecuencias[numero] = 0;
-    });
+    let cantidad = 0;
 
-    resultadosFiltrados.forEach(resultado => {
-        if (resultado.numero > 1) {
-            frecuencias[resultado.numero - 1]++;
-        }
+    for (let i = 1; i < registros.length; i++) {
+      if (Math.abs(registros[i].numero - registros[i - 1].numero) === 1) {
+        cantidad++;
+      }
+    }
 
-        if (resultado.numero < 15) {
-            frecuencias[resultado.numero + 1]++;
-        }
-    });
+    total += cantidad;
 
-    const html = NUMEROS.map(numero => `
-        <tr>
-            <td>${formatoNumero(numero)}</td>
-            <td>${frecuencias[numero]}</td>
-        </tr>
-    `).join("");
-
-    ponerHTML("vecinos", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Número vecino</th>
-                    <th>Apariciones como vecino</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
+    filas.push(`
+      <tr>
+        <td>${NOMBRES_SORTEOS[s - 1]}</td>
+        <td>${cantidad}</td>
+      </tr>
     `);
+  }
+
+  $("tablaConsecutivos").innerHTML = filas.join("");
+  $("totalConsecutivos").textContent = total;
 }
 
-// =====================================================
-// COMPARATIVA DE LOS CINCO SORTEOS
-// =====================================================
+function dibujarMensual() {
+  const meses = new Map();
+
+  for (const dia of historico) {
+    const mes = dia.fecha.slice(0, 7);
+
+    if (!meses.has(mes)) {
+      meses.set(mes, {
+        resultados: 0,
+        conteo: Array(TOTAL_NUMEROS + 1).fill(0)
+      });
+    }
+
+    const datos = meses.get(mes);
+
+    for (const r of dia.sorteos) {
+      datos.resultados++;
+      datos.conteo[r.numero]++;
+    }
+  }
+
+  const nombresMeses = [
+    "Enero", "Febrero", "Marzo", "Abril",
+    "Mayo", "Junio", "Julio", "Agosto",
+    "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+
+  const entradas = [...meses.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0])
+  );
+
+  const maximo = Math.max(1, ...entradas.map(e => e[1].resultados));
+
+  $("graficoMensual").innerHTML = entradas.length
+    ? entradas.map(([mes, datos]) => {
+        const [anio, numeroMes] = mes.split("-").map(Number);
+        const nombre = `${nombresMeses[numeroMes - 1]} ${anio}`;
+        const ancho = datos.resultados / maximo * 100;
+
+        const maxFrecuencia = Math.max(...datos.conteo.slice(1));
+        const numerosMasFrecuentes = datos.conteo
+          .slice(1)
+          .map((cantidad, i) => ({ numero: i + 1, cantidad }))
+          .filter(x => x.cantidad === maxFrecuencia)
+          .map(x => numeroTexto(x.numero))
+          .join(", ");
+
+        return `
+          <tr>
+            <td>${nombre}</td>
+            <td>${datos.resultados}</td>
+            <td>${numerosMasFrecuentes || "—"}</td>
+            <td>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:${ancho}%"></div>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("")
+    : `<tr><td colspan="4">Sin datos para este periodo.</td></tr>`;
+}
 
 function dibujarComparativa() {
-    const desde = elementoDesde?.value || "";
-    const hasta = elementoHasta?.value || "";
+  const filas = [];
 
-    const html = [0, 1, 2, 3, 4].map(sorteo => {
-        const datos = todosLosResultados.filter(resultado =>
-            resultado.sorteo === sorteo &&
-            (!desde || resultado.fecha >= desde) &&
-            (!hasta || resultado.fecha <= hasta)
-        );
+  for (let s = 1; s <= TOTAL_SORTEOS; s++) {
+    const resultados = obtenerTodosLosResultados(historicoCompleto)
+      .filter(r => r.sorteo === s && dentroDelPeriodo(r.fecha));
 
-        const frecuencias = calcularFrecuencias(datos);
+    const conteo = contarNumeros(resultados);
+    const maximo = Math.max(0, ...conteo.slice(1));
+    const minimo = resultados.length
+      ? Math.min(...conteo.slice(1))
+      : 0;
 
-        const ordenados = [...NUMEROS].sort(
-            (a, b) => frecuencias[b] - frecuencias[a] || a - b
-        );
+    const mas = resultados.length
+      ? conteo.slice(1)
+          .map((v, i) => ({ n: i + 1, v }))
+          .filter(x => x.v === maximo)
+          .map(x => numeroTexto(x.n)).join(", ")
+      : "—";
 
-        return `
-            <tr>
-                <td>Sorteo ${sorteo + 1}</td>
-                <td>${datos.length}</td>
-                <td>${formatoNumero(ordenados[0])}</td>
-                <td>${frecuencias[ordenados[0]]}</td>
-            </tr>
-        `;
-    }).join("");
+    const menos = resultados.length
+      ? conteo.slice(1)
+          .map((v, i) => ({ n: i + 1, v }))
+          .filter(x => x.v === minimo)
+          .map(x => numeroTexto(x.n)).join(", ")
+      : "—";
 
-    ponerHTML("comparativa", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Sorteo</th>
-                    <th>Resultados</th>
-                    <th>Número más frecuente</th>
-                    <th>Veces</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
+    filas.push(`
+      <tr>
+        <td><strong>${NOMBRES_SORTEOS[s - 1]}</strong></td>
+        <td>${resultados.length}</td>
+        <td>${mas}</td>
+        <td>${maximo}</td>
+        <td>${menos}</td>
+        <td>${minimo}</td>
+      </tr>
     `);
+  }
+
+  $("tablaComparativa").innerHTML = filas.join("");
 }
 
-// =====================================================
-// ESTADÍSTICAS MENSUALES
-// =====================================================
+function dentroDelPeriodo(fecha) {
+  const desde = $("desde").value;
+  const hasta = $("hasta").value;
 
-function dibujarMeses() {
-    const meses = {};
-
-    resultadosFiltrados.forEach(resultado => {
-        const mes = resultado.fecha.slice(0, 7);
-
-        if (!meses[mes]) {
-            meses[mes] = {
-                total: 0,
-                frecuencias: {}
-            };
-        }
-
-        meses[mes].total++;
-        meses[mes].frecuencias[resultado.numero] =
-            (meses[mes].frecuencias[resultado.numero] || 0) + 1;
-    });
-
-    const nombresMeses = [
-        "Enero", "Febrero", "Marzo", "Abril",
-        "Mayo", "Junio", "Julio", "Agosto",
-        "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ];
-
-    const html = Object.keys(meses).sort().map(mes => {
-        const [anio, numeroMes] = mes.split("-");
-
-        const masFrecuente = Object.entries(meses[mes].frecuencias)
-            .sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]))[0];
-
-        return `
-            <tr>
-                <td>${nombresMeses[Number(numeroMes) - 1]} ${anio}</td>
-                <td>${meses[mes].total}</td>
-                <td>${masFrecuente ? formatoNumero(Number(masFrecuente[0])) : "-"}</td>
-            </tr>
-        `;
-    }).join("");
-
-    ponerHTML("resultadosMes", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Total resultados</th>
-                    <th>Número más frecuente</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
-    `);
+  return (!desde || fecha >= desde) &&
+         (!hasta || fecha <= hasta);
 }
 
-// =====================================================
-// ÚLTIMOS RESULTADOS
-// =====================================================
+function dibujarUltimos() {
+  const ultimos = historicoCompleto.slice(-10).reverse();
 
-function dibujarUltimosResultados() {
-    const datos = [...resultadosFiltrados]
-        .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.sorteo - a.sorteo)
-        .slice(0, 25);
-
-    const html = datos.map(resultado => `
-        <tr>
-            <td>${escaparHTML(resultado.fecha)}</td>
-            <td>Sorteo ${resultado.sorteo + 1}</td>
-            <td><strong>${formatoNumero(resultado.numero)}</strong></td>
-        </tr>
-    `).join("");
-
-    ponerHTML("ultimosResultados", `
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Sorteo</th>
-                    <th>Número</th>
-                </tr>
-            </thead>
-            <tbody>${html}</tbody>
-        </table>
-    `);
+  $("ultimosResultados").innerHTML = ultimos.length
+    ? ultimos.map(dia => `
+      <div class="result-card">
+        <div class="result-date">${fechaTexto(dia.fecha)}</div>
+        <div class="result-draws">
+          ${dia.sorteos
+            .slice()
+            .sort((a, b) => a.sorteo - b.sorteo)
+            .map(r => `
+              <div class="result-draw-line">
+                <span>${NOMBRES_SORTEOS[r.sorteo - 1]}</span>
+                <div class="result-numbers">
+                  <span class="ball">${numeroTexto(r.numero)}</span>
+                </div>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+    `).join("")
+    : mostrarVacio("No hay resultados disponibles.");
 }
-
-// =====================================================
-// CARGAR HISTÓRICO
-// =====================================================
 
 async function iniciar() {
-    ponerTexto("periodo", "Cargando datos históricos...");
-    ponerTexto("aviso", "");
+  try {
+    $("estado").textContent = "Cargando histórico de Dupla…";
 
-    try {
-        const respuesta = await fetch(URL_HISTORICO + "?v=" + Date.now(), {
-            cache: "no-store"
-        });
+    const respuesta = await fetch("data/historico2026.json", {
+      cache: "no-store"
+    });
 
-        if (!respuesta.ok) {
-            throw new Error(
-                `No se pudo cargar el histórico. Código HTTP: ${respuesta.status}`
-            );
-        }
-
-        historico = await respuesta.json();
-
-        if (!historico || typeof historico !== "object" || Array.isArray(historico)) {
-            throw new Error("El archivo histórico no tiene el formato esperado.");
-        }
-
-        todosLosResultados = obtenerResultados();
-
-        if (todosLosResultados.length === 0) {
-            ponerTexto("periodo", "No se encontraron resultados válidos.");
-            ponerTexto(
-                "aviso",
-                "El histórico se ha cargado, pero no se han reconocido resultados. Comprueba la estructura de historico2026.json."
-            );
-            limpiarEstadisticas();
-            return;
-        }
-
-        const fechas = todosLosResultados.map(resultado => resultado.fecha);
-
-        if (elementoDesde && !elementoDesde.value) {
-            elementoDesde.value = fechas[0];
-        }
-
-        if (elementoHasta && !elementoHasta.value) {
-            elementoHasta.value = fechas[fechas.length - 1];
-        }
-
-        aplicarFiltros();
-
-    } catch (error) {
-        console.error("Error al cargar las estadísticas:", error);
-
-        ponerTexto("periodo", "Error al cargar los datos históricos.");
-        ponerTexto("aviso", error.message || "No se pudo cargar el histórico.");
-
-        limpiarEstadisticas();
+    if (!respuesta.ok) {
+      throw new Error(`No se pudo cargar el histórico (${respuesta.status}).`);
     }
+
+    const datos = await respuesta.json();
+
+    historicoCompleto = leerHistorico(datos);
+    historicoCompleto.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    if (!historicoCompleto.length) {
+      throw new Error("El histórico no contiene resultados válidos.");
+    }
+
+    resultadosHistoricos.push(
+      ...obtenerTodosLosResultados(historicoCompleto)
+    );
+
+    $("desde").min = historicoCompleto[0].fecha;
+    $("desde").max = historicoCompleto[historicoCompleto.length - 1].fecha;
+    $("hasta").min = historicoCompleto[0].fecha;
+    $("hasta").max = historicoCompleto[historicoCompleto.length - 1].fecha;
+
+    $("desde").value = historicoCompleto[0].fecha;
+    $("hasta").value = historicoCompleto[historicoCompleto.length - 1].fecha;
+
+    $("aplicar").addEventListener("click", aplicarFiltros);
+    $("reiniciar").addEventListener("click", reiniciarFiltros);
+
+    $("estado").textContent = "Histórico cargado correctamente.";
+    aplicarFiltros();
+
+  } catch (error) {
+    console.error(error);
+    $("estado").textContent =
+      `Error: ${error.message}. Comprueba que existe data/historico2026.json.`;
+    $("estado").className = "status error";
+  }
 }
 
-// =====================================================
-// EVENTOS
-// =====================================================
-
-if (botonAplicar) {
-    botonAplicar.addEventListener("click", aplicarFiltros);
-}
-
-iniciar();
-      
+document.addEventListener("DOMContentLoaded", iniciar);
